@@ -1,5 +1,19 @@
 # Post-Quantum-Password-Breaking-Script
 
+## Prerequisites
+
+- Python 3.6 or higher
+- pip (Python package installer)
+- A virtual environment (optional but recommended, further instructions below)
+
+Execute:
+
+    ```bash
+    git clone https://github.com/soulwax/Post-Quantum-Password-Breaking-Script
+    ```
+
+## How it works
+
 The script `conversion.py` is a Python script that converts a list of types of passwords into a more optimized quantum-computer breaking format.
 
 So far it only takes the file, asks the user the optimization rate, then prints the new times to a new csv file.
