@@ -1,6 +1,11 @@
-# README
+# Quantum Password Cracking Infographic
 
-## Project Structure
+## Overview
+
+This project generates an infographic from a CSV file containing quantum password-cracking estimates. It allows you to visualize the impact of quantum computing on password security by transforming the data and creating a heat-map infographic.
+The infographic shows the time it would take to brute-force a password of a given length and complexity using quantum computing, compared to classical methods.
+
+## Project Structure / Files
 
 ```plaintext
 .
@@ -22,7 +27,7 @@ source venv/bin/activate     # Linux/macOS
 # .\venv\Scripts\activate     # Windows PowerShell
 ```
 
-Creating an isolated **venv** keeps project-specific packages separate. ([Python documentation][1], [Python documentation][2])
+Creating an isolated **venv** keeps project-specific packages separate. ([Python documentation](https://docs.python.org/3/library/venv.html?utm_source=chatgpt.com), [Python documentation](https://docs.python.org/3/tutorial/venv.html?utm_source=chatgpt.com))
 
 ### Install dependencies
 
@@ -32,16 +37,17 @@ pip install pandas numpy matplotlib  # add any extras you need
 
 If you prefer a `requirements.txt`, list those packages and run:
 
-````bash
-pip install -r requirements.txt
-``` :contentReference[oaicite:1]{index=1}  
+```bash
+pip install -r requirements.txt :contentReference[oaicite:1]{index=1}  
+```
 
 ---
 
 ## 2  Transform the data
+
 ```bash
 python quantum_transform.py
-````
+```
 
 You’ll be prompted for an **optimisation speed-up factor** (realistic range 1 – 1 000 000, default 100).
 The script reads `data/input/input.csv` and writes two files in `data/output/`:
@@ -88,3 +94,10 @@ python quantum_infographic.py    # choose 500_output.csv
 * **Batch processing** – loop through multiple factors and call both scripts automatically.
 * **CLI options** – integrate `argparse` or `click` to accept `--factor` and `--input` flags.
 * **Integrity checks** – compute a SHA-256 hash of each CSV and store it alongside the file for tamper detection.
+* **Unit tests** – use `unittest` or `pytest` to validate the transformation logic and plotting functions.
+* **Documentation** – add docstrings to functions and classes, and consider using Sphinx for generating HTML documentation.
+* **Logging** – implement logging to track the execution flow and errors, using Python's built-in `logging` module.
+* **Configuration files** – use a configuration file (e.g., JSON or YAML) to store parameters like the input file path, output directory, and speed-up factor. This makes it easier to change settings without modifying the code.
+* **Error handling** – add try-except blocks to handle potential errors, such as file not found or invalid data formats.
+* **Code formatting** – use a code formatter like `black` or `autopep8` to ensure consistent code style.
+* **Type hints** – add type hints to function signatures to improve code readability and help with static type checking.
