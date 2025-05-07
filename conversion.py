@@ -28,7 +28,7 @@ import pandas as pd
 # ──────────────────────────────────────────────────────────────────────────────
 # 1.  Configuration
 # ──────────────────────────────────────────────────────────────────────────────
-INPUT_CSV = Path("Quantum_Data__O_SQRT_N.csv")
+INPUT_CSV = Path("data/Quantum_Data__O_SQRT_N.csv")
 SPEEDUP_FACTOR = 100  # Optimistic improvement: 100× faster than “old”
 
 # ──────────────────────────────────────────────────────────────────────────────
