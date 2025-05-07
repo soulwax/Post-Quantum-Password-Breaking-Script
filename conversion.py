@@ -1,49 +1,64 @@
+#!/usr/bin/env python3
+# File: conversion.py
 """
-Transform a first-round quantum brute-force table stored in
-Quantum_Data__O_SQRT_N.csv (“old”) into a more-optimistic projection (“optimized”).
+Convert first-round quantum brute-force estimates (“old”) into an
+optimised projection (“optimised”) and save the result in
+data/output/{factor}_output.csv.
 
-Steps
-1. Read the CSV file (edit INPUT_CSV if the name or path differs).
-2. Convert every duration string to seconds.
-3. Divide by SPEEDUP_FACTOR to simulate a faster quantum computer.
-4. Re-format seconds back into a compact text representation.
-5. Write   password_bruteforce_old.csv   and   password_bruteforce_optimized.csv.
-
-Assumptions
-* Column layout matches the earlier table:
-  ── “Number of Characters” plus five complexity columns
-    (“Numbers Only”, “Lowercase Letters”, … “Numbers, Upper and Lowercase Letters, Symbols”)
-* The duration strings follow the same patterns
-    (e.g., “Instantly”, “1.4 hours”, “4.2k years”, “1.4bn years”)
+Input  : data/input/input.csv
+Outputs: data/output/password_bruteforce_old.csv
+         data/output/{factor}_output.csv
 """
 
 from __future__ import annotations
 
-import math
 import re
 from pathlib import Path
 
 import pandas as pd
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 1.  Configuration
-# ──────────────────────────────────────────────────────────────────────────────
-INPUT_CSV = Path("data/Quantum_Data__O_SQRT_N.csv")
-SPEEDUP_FACTOR = 100  # Optimistic improvement: 100× faster than “old”
+# ── Paths ────────────────────────────────────────────────────────────────────
+INPUT_CSV = Path("data/input/input.csv")
+OUTPUT_DIR = Path("data/output")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 2.  Helpers for time-string ⇄ seconds conversions
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Factor bounds + default ─────────────────────────────────────────────────
+DEFAULT_FACTOR = 100  # blank entry ⇒ 100 × faster
+MIN_FACTOR = 1
+MAX_FACTOR = 1_000_000
+
+
+def ask_speedup() -> float:
+    prompt = (
+        f"Enter optimisation speed-up factor "
+        f"({MIN_FACTOR}–{MAX_FACTOR}, blank = {DEFAULT_FACTOR}): "
+    )
+    while True:
+        ans = input(prompt).strip()
+        if not ans:
+            return DEFAULT_FACTOR
+        try:
+            val = float(ans)
+        except ValueError:
+            print("  ✖  Number required.")
+            continue
+        if MIN_FACTOR <= val <= MAX_FACTOR:
+            return val
+        print(f"  ✖  Enter a value between {MIN_FACTOR} and {MAX_FACTOR}.")
+
+
+SPEEDUP_FACTOR = ask_speedup()
+
+# ── Utility: text ⇄ seconds ─────────────────────────────────────────────────
 _SEC_PER_UNIT = {
     "second": 1,
     "minute": 60,
     "hour": 3600,
-    "day": 86400,
-    "week": 604800,
-    "month": 30 * 86400,  # 30-day months
-    "year": 365.25 * 86400,  # Julian year
+    "day": 86_400,
+    "week": 604_800,
+    "month": 2_592_000,
+    "year": 31_557_600,
 }
-_PREFIX_MULT = {  # magnitude prefixes
+_PREFIX_MULT = {
     "": 1,
     "k": 1e3,
     "m": 1e6,
@@ -53,106 +68,76 @@ _PREFIX_MULT = {  # magnitude prefixes
     "qn": 1e15,
 }
 
-_DURATION_RE = re.compile(
-    r"""
-    (?P<num>\d+(?:\.\d+)?)            # number
-    \s*
-    (?P<prefix>[a-zA-Z]{0,2})         # optional k, m, bn, …
-    \s*
-    (?P<unit>seconds?|minutes?|hours?|days?|weeks?|months?|years?)  # unit
-    """,
-    re.VERBOSE,
+_dur_re = re.compile(
+    r"(?P<num>\d+(?:\.\d+)?)\s*"
+    r"(?P<prefix>[a-zA-Z]{0,2})\s*"
+    r"(?P<unit>seconds?|minutes?|hours?|days?|weeks?|months?|years?)$"
 )
 
 
 def text_to_seconds(txt: str) -> float:
-    """Convert human-readable duration to seconds.  'Instantly' → 0."""
-    if txt.strip().lower() == "instantly":
+    if txt.lower() == "instantly":
         return 0.0
-    m = _DURATION_RE.fullmatch(txt.strip())
-    if not m:
-        raise ValueError(f"Unrecognized duration: {txt!r}")
-    value = float(m.group("num"))
-    prefix = m.group("prefix").lower()
-    unit = m.group("unit").rstrip("s")  # singular
-    seconds = value * _PREFIX_MULT[prefix] * _SEC_PER_UNIT[unit]
-    return seconds
+    m = _dur_re.fullmatch(txt.strip())
+    val = float(m.group("num"))
+    prefix = _PREFIX_MULT[m.group("prefix").lower()]
+    unit = _SEC_PER_UNIT[m.group("unit").rstrip("s")]
+    return val * prefix * unit
 
 
-def seconds_to_text(seconds: float) -> str:
-    """Convert seconds into a compact description resembling the source style."""
-    if seconds < 0.5:
+def seconds_to_text(sec: float) -> str:
+    if sec < 0.5:
         return "Instantly"
-
-    # pick the most intuitive unit
-    for unit, sec_per in reversed(list(_SEC_PER_UNIT.items())):
-        if seconds >= sec_per:
-            value = seconds / sec_per
+    for unit, s_per in reversed(_SEC_PER_UNIT.items()):
+        if sec >= s_per:
+            val = sec / s_per
             break
-
-    # insert magnitude prefix if value still huge
-    for prefix, mult in reversed(list(_PREFIX_MULT.items())):
-        adj = value / mult
+    for pref, mult in reversed(_PREFIX_MULT.items()):
+        adj = val / mult
         if 1 <= adj < 1000:
-            value, chosen_prefix = adj, prefix
+            val, chosen = adj, pref
             break
     else:
-        chosen_prefix = ""
-
-    value_str = (
-        str(int(value))
-        if value.is_integer()
-        else f"{value:.1f}".rstrip("0").rstrip(".")
+        chosen = ""
+    val_str = (
+        f"{int(val)}" if val.is_integer() else f"{val:.1f}".rstrip("0").rstrip(".")
     )
-    unit += "s" if value != 1 else ""
-    space = " " if chosen_prefix == "" else ""
-    return f"{value_str}{chosen_prefix}{space}{unit}"
+    unit += "s" if val != 1 else ""
+    space = " " if chosen == "" else ""
+    return f"{val_str}{chosen}{space}{unit}"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 3.  Load the CSV
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Load CSV ────────────────────────────────────────────────────────────────
 if not INPUT_CSV.exists():
-    raise FileNotFoundError(f"Input file not found: {INPUT_CSV}")
-
+    raise FileNotFoundError(INPUT_CSV)
 df_old = pd.read_csv(INPUT_CSV)
+duration_cols = [c for c in df_old.columns if c != "Number of Characters"]
 
-# Ensure expected structure
-expected_cols = [
-    "Number of Characters",
-    "Numbers Only",
-    "Lowercase Letters",
-    "Upper and Lowercase Letters",
-    "Numbers, Upper and Lowercase Letters",
-    "Numbers, Upper and Lowercase Letters, Symbols",
-]
-missing = [c for c in expected_cols if c not in df_old.columns]
-if missing:
-    raise ValueError(f"CSV missing expected columns: {missing}")
-
-duration_cols = expected_cols[1:]
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 4.  Convert strings → seconds,  apply speed-up,  seconds → strings
-# ──────────────────────────────────────────────────────────────────────────────
+# ── Build optimised table ───────────────────────────────────────────────────
 df_opt = df_old.copy()
-
 for col in duration_cols:
-    seconds = df_old[col].map(text_to_seconds)
-    df_old[col + " (s)"] = seconds  # keep a numeric backup
-    new_seconds = seconds / SPEEDUP_FACTOR
-    df_opt[col] = new_seconds.map(seconds_to_text)
-    df_opt[col + " (s)"] = new_seconds
+    secs = df_old[col].map(text_to_seconds)
+    df_opt[col] = (secs / SPEEDUP_FACTOR).map(seconds_to_text)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 5.  Export old + optimized tables
-# ──────────────────────────────────────────────────────────────────────────────
-OUT_OLD = Path("password_bruteforce_old.csv")
-OUT_OPT = Path("password_bruteforce_optimized.csv")
+# ── Write outputs ───────────────────────────────────────────────────────────
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-df_old[expected_cols].to_csv(OUT_OLD, index=False)
-df_opt[expected_cols].to_csv(OUT_OPT, index=False)
+# unchanged first-round figures
+(df_old[["Number of Characters"] + duration_cols]).to_csv(
+    OUTPUT_DIR / "password_bruteforce_old.csv", index=False
+)
 
-print(f"✓ Wrote {OUT_OLD}")
-print(f"✓ Wrote {OUT_OPT}")
-print(f"  Speed-up factor applied: {SPEEDUP_FACTOR}×")
+
+# optimised figures – filename embeds factor
+def factor_str(f: float) -> str:
+    return str(int(f)) if f.is_integer() else str(f).replace(".", "_")
+
+
+opt_name = f"{factor_str(SPEEDUP_FACTOR)}_output.csv"
+(df_opt[["Number of Characters"] + duration_cols]).to_csv(
+    OUTPUT_DIR / opt_name, index=False
+)
+
+print(f"\n✓ Speed-up factor applied: {SPEEDUP_FACTOR}×")
+print(f"✓ Wrote {OUTPUT_DIR/'password_bruteforce_old.csv'}")
+print(f"✓ Wrote {OUTPUT_DIR/opt_name}")
