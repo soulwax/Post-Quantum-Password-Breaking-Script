@@ -14,21 +14,26 @@ Execute:
 
 ## How it works
 
-The script `conversion.py` is a Python script that converts a list of types of passwords into a more optimized quantum-computer breaking format.
+The script `conversion.py` is a Python script that converts a list of types of
+passwords into a more optimized quantum-computer breaking format.
 
 So far it only takes the file, asks the user the optimization rate, then prints the new times to a new csv file.
 
 ## Explanation of the code
 
-The code thus far works with the Quantum_Data__O_SQRT_N.csv file, which is a CSV file containing the time it takes to break a password of length N with a quantum computer of runtuime O(sqrt(N)).
+The code thus far works with the data/input/input.csv file,
+which is a CSV file containing the time it takes to break
+a password of length N with a quantum computer of runtuime O(sqrt(N)) currently.
+The output is in the form of a CSV file with the same format as the input file,
+but with the time values multiplied by a user-defined optimization rate within `data/output/outimized.csv`.
 
 ## Usage with venv
 
 1. Create a virtual environment (if you haven't already):
 
-   ```bash
-   python -m venv venv
-   ```
+    ```bash
+    python -m venv venv
+    ```
 
 2. Activate the virtual environment:
     - On Windows:
